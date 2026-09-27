@@ -1,0 +1,17 @@
+{
+  "name": "universe-18-visitors",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-27",
+  "vars": {
+    "SITE_ORIGIN": "https://jenny2019ok.github.io",
+    "FIREBASE_PROJECT_ID": "universe18-ashley-2026",
+    "OWNER_EMAIL": "jenny2019ok@gmail.com"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "universe-18-visitors",
+      "database_id": "900788fa-3d6b-4be3-98a3-1222d9eb11a2"
+    }
+  ]
+}
