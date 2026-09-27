@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS visitors (
+  sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  browser_id TEXT NOT NULL UNIQUE,
+  nickname TEXT NOT NULL,
+  gift TEXT,
+  self_wish TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS visitors_created_at ON visitors(created_at DESC);
