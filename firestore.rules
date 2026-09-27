@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner() {
+      return request.auth != null
+        && request.auth.token.email == 'jenny2019ok@gmail.com'
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+    function visitor(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+    function visitorPath(uid) {
+      return /databases/$(database)/documents/visitors/$(uid);
+    }
+    function statsPath() {
+      return /databases/$(database)/documents/public/stats;
+    }
+    function validProfile(data) {
+      return data.nickname is string
+        && data.nickname.size() > 0
+        && data.nickname.size() <= 24;
+    }
+    function validGift(data) {
+      return data.gift in [null, '好运', '钱', '爱', '自由', '勇气', '新鲜事', '健康', '睡眠']
+        && data.selfWish in [null, '好运', '钱', '爱', '自由', '勇气', '新鲜事', '健康', '睡眠'];
+    }
+    function counterMatches(before, after, key, selected) {
+      return after.get(key, 0) == before.get(key, 0) + (selected == key ? 1 : 0);
+    }
+    function validGiftCounts(before, after, selected) {
+      return after.keys().hasOnly(['好运', '钱', '爱', '自由', '勇气', '新鲜事', '健康', '睡眠'])
+        && counterMatches(before, after, '好运', selected)
+        && counterMatches(before, after, '钱', selected)
+        && counterMatches(before, after, '爱', selected)
+        && counterMatches(before, after, '自由', selected)
+        && counterMatches(before, after, '勇气', selected)
+        && counterMatches(before, after, '新鲜事', selected)
+        && counterMatches(before, after, '健康', selected)
+        && counterMatches(before, after, '睡眠', selected);
+    }
+
+    match /public/stats {
+      allow get: if true;
+      allow list: if false;
+      allow create, delete: if owner();
+      allow update: if owner() || (
+        request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['total'])
+        && request.resource.data.total == resource.data.total + 1
+        && !exists(visitorPath(request.auth.uid))
+        && existsAfter(visitorPath(request.auth.uid))
+        && getAfter(visitorPath(request.auth.uid)).data.sequence == request.resource.data.total
+      ) || (
+        visitor(request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['giftCounts'])
+        && request.resource.data.total == resource.data.total
+        && exists(visitorPath(request.auth.uid))
+        && existsAfter(visitorPath(request.auth.uid))
+        && get(visitorPath(request.auth.uid)).data.gift == null
+        && getAfter(visitorPath(request.auth.uid)).data.gift in ['好运', '钱', '爱', '自由', '勇气', '新鲜事', '健康', '睡眠']
+        && getAfter(visitorPath(request.auth.uid)).data.selfWish in ['好运', '钱', '爱', '自由', '勇气', '新鲜事', '健康', '睡眠']
+        && request.resource.data.giftCounts is map
+        && validGiftCounts(resource.data.get('giftCounts', {}), request.resource.data.giftCounts, getAfter(visitorPath(request.auth.uid)).data.gift)
+      );
+    }
+
+    match /visitors/{uid} {
+      allow get: if owner() || visitor(uid);
+      allow list: if owner();
+      allow create: if visitor(uid)
+        && request.resource.data.keys().hasAll(['uid', 'nickname', 'sequence', 'gift', 'selfWish', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['uid', 'nickname', 'sequence', 'gift', 'selfWish', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && validProfile(request.resource.data)
+        && request.resource.data.gift == null
+        && request.resource.data.selfWish == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.sequence == getAfter(statsPath()).data.total
+        && getAfter(statsPath()).data.total == get(statsPath()).data.total + 1;
+      allow update: if visitor(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nickname', 'gift', 'selfWish', 'updatedAt'])
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.sequence == resource.data.sequence
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && validProfile(request.resource.data)
+        && validGift(request.resource.data);
+      allow delete: if owner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
